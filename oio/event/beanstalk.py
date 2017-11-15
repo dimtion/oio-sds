@@ -19,8 +19,11 @@ import sys
 import yaml
 from eventlet.green import socket
 from eventlet.queue import Empty, LifoQueue
-from urlparse import urlparse
-from cStringIO import StringIO as BytesIO
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+from io import BytesIO
 
 
 SYM_CRLF = '\r\n'

@@ -37,9 +37,9 @@ class ShowAdminVolume(show.ShowOne):
         output.append(('volume', parsed_args.volume))
         data = self.app.client_manager.volume.volume_admin_show(
             volume=parsed_args.volume)
-        for k, v in sorted(data.iteritems()):
+        for k, v in sorted(data.items()):
             output.append((k, v))
-        return zip(*output)
+        return list(zip(*output))
 
 
 class ClearAdminVolume(lister.Lister):
@@ -91,7 +91,7 @@ class ShowVolume(show.ShowOne):
         data = self.app.client_manager.volume.volume_show(
             volume=parsed_args.volume
         )
-        return zip(*sorted(data.iteritems()))
+        return list(zip(*sorted(data.items())))
 
 
 class IncidentAdminVolume(lister.Lister):
@@ -279,7 +279,7 @@ class DisplayVolumeAssignation(lister.Lister):
                 if rdir['addr'] not in rdir_by_addr:
                     rdir['managed_rawx'] = list()
                     rdir_by_addr[rdir["addr"]] = rdir
-            for addr, rdir in rdir_by_addr.iteritems():
+            for addr, rdir in rdir_by_addr.items():
                 results.append((addr,
                                 len(rdir['managed_rawx']),
                                 ' '.join(rdir['managed_rawx'])))

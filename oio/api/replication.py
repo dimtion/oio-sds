@@ -17,7 +17,11 @@ import logging
 import hashlib
 from eventlet import Timeout, GreenPile
 from eventlet.queue import Queue
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+from builtins import str as text
 from oio.common import exceptions as exc
 from oio.common.exceptions import SourceReadError
 from oio.common.http import headers_from_object_metadata
@@ -48,13 +52,23 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
                  read_timeout=None, headers=None):
         super(ReplicatedMetachunkWriter, self).__init__(
             storage_method=storage_method, quorum=quorum)
-        self.sysmeta = sysmeta
-        self.meta_chunk = meta_chunk
+        self.sysmeta = self._encode(sysmeta)
+        self.meta_chunk = self._encode(meta_chunk)
         self.checksum = checksum
         self.connection_timeout = connection_timeout or io.CONNECTION_TIMEOUT
         self.write_timeout = write_timeout or io.CHUNK_TIMEOUT
         self.read_timeout = read_timeout or io.CLIENT_TIMEOUT
         self.headers = headers or {}
+
+    def _encode(self, input):
+        if isinstance(input, dict):
+            return {key: self._encode(value) for key, value in input.items()}
+        elif isinstance(input, list):
+            return [self._encode(element) for element in input]
+        elif isinstance(input, text):
+            return input.encode('utf-8')
+        else:
+            return input
 
     def stream(self, source, size=None):
         bytes_transferred = 0
@@ -163,11 +177,12 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
         raw_url = chunk["url"]
         parsed = urlparse(raw_url)
         try:
-            chunk_path = parsed.path.split('/')[-1]
+            chunk_path = parsed.path.split(b'/')[-1]
             hdrs = headers_from_object_metadata(self.sysmeta)
-            hdrs[chunk_headers["chunk_pos"]] = chunk["pos"]
+            hdrs[chunk_headers["chunk_pos"]] = chunk[b"pos"]
             hdrs[chunk_headers["chunk_id"]] = chunk_path
             hdrs.update(self.headers)
+            hdrs = self._encode(hdrs)
 
             with green.ConnectionTimeout(self.connection_timeout):
                 conn = io.http_connect(
@@ -186,6 +201,8 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
         """
         while True:
             data = conn.queue.get()
+            if isinstance(data, text):
+                data = data.encode('utf-8')
             if not conn.failed:
                 try:
                     with green.ChunkWriteTimeout(self.write_timeout):

@@ -14,13 +14,17 @@
 # License along with this library.
 
 import sys
+from builtins import str as text
 
 from oio.common.json import json as jsonlib
 from oio.common.http_urllib3 import urllib3, get_pool_manager
 from urllib3.exceptions import MaxRetryError, TimeoutError, HTTPError, \
     NewConnectionError, ProtocolError, ProxyError, ClosedPoolError
-from urllib import urlencode
 from oio.common import exceptions
+try:
+    from urllib.parse import urlencode
+except ImportError:
+    from urllib import urlencode
 from oio.common.constants import ADMIN_HEADER, CONNECTION_TIMEOUT, READ_TIMEOUT
 
 _POOL_MANAGER_OPTIONS_KEYS = ["pool_connections", "pool_maxsize",
@@ -51,7 +55,7 @@ class HttpApi(object):
 
         if not pool_manager:
             pool_manager_conf = {k: int(v)
-                                 for k, v in kwargs.iteritems()
+                                 for k, v in kwargs.items()
                                  if k in _POOL_MANAGER_OPTIONS_KEYS}
             pool_manager = get_pool_manager(**pool_manager_conf)
         self.pool_manager = pool_manager
@@ -88,12 +92,12 @@ class HttpApi(object):
         code >= 400
         """
         # Filter arguments that are not recognized by Requests
-        out_kwargs = {k: v for k, v in kwargs.items()
+        out_kwargs = {k: v for k, v in list(kwargs.items())
                       if k in URLLIB3_REQUESTS_KWARGS}
 
         # Ensure headers are all strings
         if headers:
-            out_headers = {k: str(v) for k, v in headers.items()}
+            out_headers = {k: text(v) for k, v in list(headers.items())}
         else:
             out_headers = dict()
         if self.admin_mode or admin_mode:
@@ -116,10 +120,10 @@ class HttpApi(object):
         # Add query string
         if params:
             out_param = []
-            for k, v in params.items():
+            for k, v in list(params.items()):
                 if v is not None:
-                    if isinstance(v, unicode):
-                        v = unicode(v).encode('utf-8')
+                    if isinstance(v, text):
+                        v = text(v).encode('utf-8')
                     out_param.append((k, v))
             encoded_args = urlencode(out_param)
             url += '?' + encoded_args
@@ -137,17 +141,16 @@ class HttpApi(object):
                     pass
         except MaxRetryError as exc:
             if isinstance(exc.reason, NewConnectionError):
-                raise exceptions.OioNetworkException(exc), None, \
-                        sys.exc_info()[2]
+                raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
             if isinstance(exc.reason, TimeoutError):
-                raise exceptions.OioTimeout(exc), None, sys.exc_info()[2]
-            raise exceptions.OioNetworkException(exc), None, sys.exc_info()[2]
+                raise exceptions.OioTimeout(exc).with_traceback(sys.exc_info()[2])
+            raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
         except (ProtocolError, ProxyError, ClosedPoolError) as exc:
-            raise exceptions.OioNetworkException(exc), None, sys.exc_info()[2]
+            raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
         except TimeoutError as exc:
-            raise exceptions.OioTimeout(exc), None, sys.exc_info()[2]
+            raise exceptions.OioTimeout(exc).with_traceback(sys.exc_info()[2])
         except HTTPError as exc:
-            raise exceptions.OioException(exc), None, sys.exc_info()[2]
+            raise exceptions.OioException(exc).with_traceback(sys.exc_info()[2])
         if resp.status >= 400:
             raise exceptions.from_response(resp, body)
         return resp, body

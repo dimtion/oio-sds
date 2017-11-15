@@ -68,9 +68,9 @@ class ShowReference(show.ShowOne):
             parsed_args.reference)
         info = {'account': account,
                 'name': reference}
-        for k, v in data['properties'].iteritems():
+        for k, v in data['properties'].items():
             info['meta.' + k] = v
-        return zip(*sorted(info.iteritems()))
+        return list(zip(*sorted(info.items())))
 
 
 class CreateReference(lister.Lister):
@@ -376,4 +376,4 @@ class LocateReference(show.ShowOne):
         for srv_type in ['meta0', 'meta1']:
             info[srv_type] = ', '.join(h for h in info[srv_type])
 
-        return zip(*sorted(info.iteritems()))
+        return list(zip(*sorted(info.items())))

@@ -13,12 +13,16 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.
 
+try:
+    from urllib.parse import quote_plus
+except ImportError:
+    from urllib import quote_plus
+
 from oio.common import exceptions as exc
 from oio.common.exceptions import ClientException, OrphanChunk
 from oio.common.logger import get_logger
 from oio.blob.client import BlobClient
 from oio.container.client import ContainerClient
-from urllib import quote_plus
 from oio.common.constants import OIO_VERSION
 
 

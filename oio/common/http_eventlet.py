@@ -16,16 +16,23 @@
 import logging
 import socket
 
-from urllib import quote
+try:
+    from urllib.parse import quote
+except ImportError:
+    from urllib import quote
 from eventlet.green.httplib import HTTPConnection, HTTPResponse, _UNKNOWN, \
         CONTINUE, HTTPMessage
+from builtins import str as text
 
 
 class CustomHTTPResponse(HTTPResponse):
     def __init__(self, sock, debuglevel=0, strict=0,
                  method=None):
         self.sock = sock
-        self._actual_socket = sock.fd._sock
+        try:
+            self._actual_socket = sock.fd._sock
+        except AttributeError:
+            self._actual_socket = sock.fd
         self.fp = sock.makefile('rb')
         self.debuglevel = debuglevel
         self.strict = strict
@@ -94,15 +101,15 @@ class CustomHttpConnection(HTTPConnection):
 
 
 def http_connect(host, method, path, headers=None, query_string=None):
-    if isinstance(path, unicode):
+    if isinstance(path, text):
         try:
             path = path.encode('utf-8')
         except UnicodeError as e:
             logging.exception('ERROR encoding to UTF-8: %s', str(e))
-    path = quote('/' + path)
-    conn = CustomHttpConnection(host)
+    path = quote(b'/' + path)
+    conn = CustomHttpConnection(host.decode("utf-8"))
     if query_string:
-        path += '?' + query_string
+        path += b'?' + query_string
     conn.path = path
     conn.putrequest(method, path)
     if headers:

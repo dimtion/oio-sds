@@ -29,15 +29,15 @@ class ClusterShow(show.ShowOne):
         output = list()
         output.append(('namespace', data['ns']))
         output.append(('chunksize', data['chunksize']))
-        for k, v in data['storage_policy'].iteritems():
+        for k, v in data['storage_policy'].items():
             output.append(('storage_policy.%s' % k, v))
-        for k, v in data['data_security'].iteritems():
+        for k, v in data['data_security'].items():
             output.append(('data_security.%s' % k, v))
-        for k, v in data['service_pools'].iteritems():
+        for k, v in data['service_pools'].items():
             output.append(('service_pool.%s' % k, v))
-        for k, v in sorted(data['options'].iteritems()):
+        for k, v in sorted(data['options'].items()):
             output.append((k, v))
-        return zip(*output)
+        return list(zip(*output))
 
 
 class ClusterList(lister.Lister):
@@ -76,7 +76,7 @@ class ClusterList(lister.Lister):
                 up = tags.get('tag.up', 'n/a')
                 score = srv['score']
                 if parsed_args.stats:
-                    stats = ["%s=%s" % (k, v) for k, v in tags.items()
+                    stats = ["%s=%s" % (k, v) for k, v in list(tags.items())
                              if k.startswith('stat.')]
                     values = (srv_type, addr, volume, location,
                               slots, up, score, " ".join(stats))
@@ -341,4 +341,4 @@ class LocalNSConf(show.ShowOne):
         output = list()
         for k in sds_conf:
             output.append(("%s/%s" % (namespace, k), sds_conf[k]))
-        return zip(*output)
+        return list(zip(*output))

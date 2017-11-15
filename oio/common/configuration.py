@@ -18,7 +18,7 @@ from sys import exit
 from yaml import load
 from optparse import OptionParser
 from glob import glob
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 
 def parse_options(parser=None):

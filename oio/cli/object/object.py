@@ -312,9 +312,9 @@ class ShowObject(ObjectCommandMixin, show.ShowOne):
                 'hash': data['hash'],
                 'ctime': data['ctime'],
                 'policy': data['policy']}
-        for k, v in data['properties'].iteritems():
+        for k, v in data['properties'].items():
             info['meta.' + k] = v
-        return zip(*sorted(info.iteritems()))
+        return list(zip(*sorted(info.items())))
 
 
 class SetObject(ObjectCommandMixin, command.Command):
@@ -585,7 +585,7 @@ class ListObject(ContainerCommandMixin, lister.Lister):
 
             def _format_props(props):
                 prop_list = ["%s=%s" % (k, v) for k, v
-                             in props.iteritems()]
+                             in props.items()]
                 if parsed_args.formatter == 'table':
                     prop_string = "\n".join(prop_list)
                 elif parsed_args.formatter in ('value', 'csv'):

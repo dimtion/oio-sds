@@ -17,7 +17,7 @@
 import os
 import re
 import pkg_resources
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 
 DEFAULT_HANDLER = 'egg:oio#default'

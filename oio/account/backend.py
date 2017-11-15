@@ -23,6 +23,7 @@ from oio.common.timestamp import Timestamp
 from oio.common.easy_value import int_value, true_value
 from oio.common.redis_conn import RedisConn
 
+from builtins import str as text
 
 EXPIRE_TIME = 60  # seconds
 
@@ -184,7 +185,7 @@ class AccountBackend(RedisConn):
     @staticmethod
     def ckey(account, name):
         """Build the key of a container description"""
-        return 'container:%s:%s' % (account, unicode(name))
+        return 'container:%s:%s' % (account, text(name))
 
     def create_account(self, account_id):
         conn = self.conn

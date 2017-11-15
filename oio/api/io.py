@@ -17,7 +17,10 @@ from __future__ import absolute_import
 from io import BufferedReader, RawIOBase, IOBase
 import itertools
 import logging
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 from eventlet import sleep, Timeout
 from oio.common import exceptions as exc
 from oio.common.http import parse_content_type,\
@@ -515,7 +518,7 @@ class MetachunkWriter(object):
         """
         if len(successes) < self.quorum:
             errors = group_chunk_errors(
-                ((chunk["url"], chunk.get("error", "success"))
+                ((chunk[b"url"], chunk.get("error", "success"))
                  for chunk in successes + failures))
             raise exc.OioException(
                 "RAWX write failure, quorum not reached (%d/%d): %s" %

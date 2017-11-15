@@ -16,7 +16,7 @@
 from requests import exceptions, Session, Request
 import base64
 import hashlib
-import ConfigParser
+from configparser import ConfigParser
 import json as js
 from oio.api import io
 
@@ -62,7 +62,7 @@ class BackblazeUtils(object):
             authorization = BackblazeUtils.b2_authorization_list.get(key, None)
             if authorization:
                 return authorization
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser()
         app_key = None
         with open(application_key_path) as app_key_f:
             try:
