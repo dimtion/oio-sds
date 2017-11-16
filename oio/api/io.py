@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from io import BufferedReader, RawIOBase, IOBase
 import itertools
 import logging
+from builtins import str as text
 try:
     from urllib.parse import urlparse
 except ImportError:
@@ -243,6 +244,16 @@ class ChunkReader(object):
             # just add an offset to the request
             self.request_headers['Range'] = 'bytes=%d-' % nb_bytes
 
+    def _encode(self, input):
+        if isinstance(input, dict):
+            return {key: self._encode(value) for key, value in input.items()}
+        elif isinstance(input, list):
+            return [self._encode(element) for element in input]
+        elif isinstance(input, text):
+            return input.encode('utf-8')
+        else:
+            return input
+
     def _get_request(self, chunk):
         """
         Connect to a chunk, fetch headers but don't read data.
@@ -361,7 +372,7 @@ class ChunkReader(object):
     def iter_from_resp(self, source, parts_iter, part, chunk):
         bytes_consumed = 0
         count = 0
-        buf = ''
+        buf = b''
         while True:
             try:
                 with green.ChunkReadTimeout(self.read_timeout):
@@ -376,7 +387,7 @@ class ChunkReader(object):
                 except exc.EmptyByteRange:
                     # we are done already
                     break
-                buf = ''
+                buf = b''
                 # find a new source to perform recovery
                 new_source, new_chunk = self._get_source()
                 if new_source:
@@ -410,7 +421,7 @@ class ChunkReader(object):
                     else:
                         self.discard_bytes -= len(buf)
                         bytes_consumed += len(buf)
-                        buf = ''
+                        buf = b''
 
                 # no data returned
                 # flush out buffer
@@ -418,7 +429,7 @@ class ChunkReader(object):
                     if buf:
                         bytes_consumed += len(buf)
                         yield buf
-                    buf = ''
+                    buf = b''
                     break
 
                 # If buf_size is defined, yield bounded data buffers
@@ -431,7 +442,7 @@ class ChunkReader(object):
                 else:
                     yield buf
                     bytes_consumed += len(buf)
-                    buf = ''
+                    buf = b''
 
                 # avoid starvation by forcing sleep()
                 # every once in a while

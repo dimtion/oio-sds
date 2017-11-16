@@ -116,8 +116,8 @@ def http_connect(host, method, path, headers=None, query_string=None):
         for header, value in headers.items():
             if isinstance(value, list):
                 for k in value:
-                    conn.putheader(header, (k.decode('utf-8')))
+                    conn.putheader(header, k)
             else:
-                conn.putheader(header, value.decode('utf-8'))
+                conn.putheader(header, value)
     conn.endheaders()
     return conn

@@ -15,6 +15,7 @@
 
 import os
 from logging import getLogger
+from functools import cmp_to_key
 from oio.common.http_urllib3 import get_pool_manager
 from oio.common.utils import depaginate
 from cliff import command, lister, show
@@ -754,4 +755,4 @@ class LocateObject(ObjectCommandMixin, lister.Lister):
             chunks = ((c['pos'], c['url'], c['size'],
                        c['hash']) for c in data[1])
 
-        return columns, sorted(chunks, cmp=sort_chunk_pos)
+        return columns, sorted(chunks, key=cmp_to_key(sort_chunk_pos))

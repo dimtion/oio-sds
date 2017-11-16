@@ -16,6 +16,7 @@
 
 import os
 import sys
+from future.utils import iteritems
 import yaml
 from eventlet.green import socket
 from eventlet.queue import Empty, LifoQueue
@@ -244,7 +245,7 @@ class Connection(object):
                 if self.socket_keepalive:
                     sock.setsockopt(
                         socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                    for k, v in self.socket_keepalive_options.iteritems():
+                    for k, v in iteritems(self.socket_keepalive_options):
                         sock.setsockopt(socket.SOL_TCP, k, v)
 
                 sock.settimeout(self.socket_connect_timeout)
