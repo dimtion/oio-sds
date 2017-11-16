@@ -141,16 +141,22 @@ class HttpApi(object):
                     pass
         except MaxRetryError as exc:
             if isinstance(exc.reason, NewConnectionError):
-                raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
+                raise exceptions.OioNetworkException(exc).with_traceback(
+                    sys.exc_info()[2])
             if isinstance(exc.reason, TimeoutError):
-                raise exceptions.OioTimeout(exc).with_traceback(sys.exc_info()[2])
-            raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
+                raise exceptions.OioTimeout(exc).with_traceback(
+                    sys.exc_info()[2])
+            raise exceptions.OioNetworkException(exc).with_traceback(
+                sys.exc_info()[2])
         except (ProtocolError, ProxyError, ClosedPoolError) as exc:
-            raise exceptions.OioNetworkException(exc).with_traceback(sys.exc_info()[2])
+            raise exceptions.OioNetworkException(exc).with_traceback(
+                sys.exc_info()[2])
         except TimeoutError as exc:
-            raise exceptions.OioTimeout(exc).with_traceback(sys.exc_info()[2])
+            raise exceptions.OioTimeout(exc).with_traceback(
+                sys.exc_info()[2])
         except HTTPError as exc:
-            raise exceptions.OioException(exc).with_traceback(sys.exc_info()[2])
+            raise exceptions.OioException(exc).with_traceback(
+                sys.exc_info()[2])
         if resp.status >= 400:
             raise exceptions.from_response(resp, body)
         return resp, body
