@@ -15,6 +15,8 @@
 
 
 """Meta0 client and meta1 balancing operations"""
+from six import itervalues, iteritems
+from past.builtins import xrange, basestring
 import random
 
 from oio.common.json import json
@@ -172,7 +174,7 @@ class PrefixMapping(object):
         if self.digits == 4:
             # nothing to extend: there is one base for each prefix
             return svc_by_base
-        for base, services in svc_by_base.iteritems():
+        for base, services in iteritems(svc_by_base):
             for pfx in self.prefix_siblings(base):
                 extended[pfx] = services
         return extended
@@ -183,7 +185,7 @@ class PrefixMapping(object):
         as input for 'meta0_force' request.
         """
         simplified = dict()
-        for pfx, services in self._extend(bases).iteritems():
+        for pfx, services in iteritems(self._extend(bases)):
             simplified[pfx] = [x['addr'] for x in services]
         return json.dumps(simplified)
 
@@ -200,7 +202,7 @@ class PrefixMapping(object):
             raw_mapping = self.m0.list(**kwargs)
 
         # pylint: disable=no-member
-        for pfx, services_addrs in raw_mapping.iteritems():
+        for pfx, services_addrs in iteritems(raw_mapping):
             services = list()
             # FIXME: this is REALLY annoying
             # self.prefix_to_base() takes the beginning of the prefix,
@@ -316,13 +318,13 @@ class PrefixMapping(object):
         return self._find_services(
             known,
             (lambda known2:
-             (self.services[random.choice(self.services.keys())], )))
+             (self.services[random.choice(list(self.services))], )))
 
     def find_services_less_bases(self, known=None, min_score=1, **_kwargs):
         """Find `replicas` services, including the ones of `known`"""
         if known is None:
             known = list()
-        filtered = [x for x in self.services.itervalues()
+        filtered = [x for x in itervalues(self.services)
                     if self.get_score(x) >= min_score]
         # Reverse the list so we can quickly pop the service
         # with less managed bases
@@ -387,7 +389,7 @@ class PrefixMapping(object):
         the number of managed bases as values.
         """
         pfx_by_svc = dict()
-        for svc in self.services.itervalues():
+        for svc in itervalues(self.services):
             addr = svc["addr"]
             pfx_by_svc[addr] = len(self.get_managed_bases(svc))
         return pfx_by_svc
@@ -396,7 +398,7 @@ class PrefixMapping(object):
         """Check that all bases have the right number of replicas"""
         error = False
         grand_total = 0
-        for base, services in self.svc_by_base.iteritems():
+        for base, services in iteritems(self.svc_by_base):
             if len(services) < self.replicas:
                 if self.logger:
                     self.logger.error(
@@ -456,8 +458,8 @@ class PrefixMapping(object):
 
         loops = 0
         moved_bases = set()
-        ideal_bases_by_svc = (self.num_bases() * self.replicas /
-                              len([x for x in self.services.itervalues()
+        ideal_bases_by_svc = (self.num_bases() * self.replicas //
+                              len([x for x in itervalues(self.services)
                                    if self.get_score(x) > 0]))
         upper_limit = ideal_bases_by_svc + 1
         if self.logger:
@@ -465,13 +467,13 @@ class PrefixMapping(object):
             self.logger.info("Replicas = %d", self.replicas)
             self.logger.info(
                 "Scored positively = %d",
-                len([x for x in self.services.itervalues()
+                len([x for x in itervalues(self.services)
                      if self.get_score(x) > 0]))
             self.logger.info(
                 "Ideal number of bases per meta1: %d, limit: %d",
                 ideal_bases_by_svc, upper_limit)
         while loops < max_loops:
-            candidates = self.services.values()
+            candidates = list(self.services.values())
             candidates.sort(key=(lambda x: len(self.get_managed_bases(x))))
             already_balanced = 0
             while candidates:
@@ -501,7 +503,8 @@ class PrefixMapping(object):
         if self.logger:
             self.logger.info("%s bases moved",
                              len(moved_bases))
-            for svc in sorted(self.services.values(), key=lambda x: x['addr']):
+            for svc in sorted(list(self.services.values()),
+                              key=lambda x: x['addr']):
                 svc_bases = self.get_managed_bases(svc)
                 self.logger.info("meta1 %s has %d bases",
                                  svc['addr'], len(svc_bases))

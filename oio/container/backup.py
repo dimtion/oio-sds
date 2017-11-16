@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
+from past.builtins import xrange
 try:
     import simplejson as json
 except ImportError:

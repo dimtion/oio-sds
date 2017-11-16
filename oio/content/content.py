@@ -17,6 +17,7 @@ try:
     from urllib.parse import quote_plus
 except ImportError:
     from urllib import quote_plus
+from past.builtins import cmp
 
 from oio.common import exceptions as exc
 from oio.common.exceptions import ClientException, OrphanChunk
@@ -274,6 +275,24 @@ class Chunk(object):
             return cmp(self.id, other.id)
 
         return cmp(self.subpos, other.subpos)
+
+    def __lt__(self, other):
+        return self.__cmp__(other) < 0
+
+    def __le__(self, other):
+        return self.__cmp__(other) <= 0
+
+    def __eq__(self, other):
+        return self.__cmp__(other) == 0
+
+    def __ne__(self, other):
+        return self.__cmp__(other) != 0
+
+    def __ge__(self, other):
+        return self.__cmp__(other) >= 0
+
+    def __gt__(self, other):
+        return self.__cmp__(other) > 0
 
 
 class ChunksHelper(object):

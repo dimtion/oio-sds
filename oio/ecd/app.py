@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from past.builtins import xrange
 from hashlib import md5
 
 from werkzeug.exceptions import BadRequest
