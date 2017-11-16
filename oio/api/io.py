@@ -518,7 +518,7 @@ class MetachunkWriter(object):
         """
         if len(successes) < self.quorum:
             errors = group_chunk_errors(
-                ((chunk[b"url"], chunk.get("error", "success"))
+                ((chunk["url"], chunk.get("error", "success"))
                  for chunk in successes + failures))
             raise exc.OioException(
                 "RAWX write failure, quorum not reached (%d/%d): %s" %

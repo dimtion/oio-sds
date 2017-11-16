@@ -108,22 +108,22 @@ def headers_from_object_metadata(metadata):
     out = dict()
     out["transfer-encoding"] = "chunked"
     # FIXME: remove key incoherencies
-    out[chunk_headers["content_id"]] = metadata[b'id']
-    out[chunk_headers["content_version"]] = metadata[b'version']
-    out[chunk_headers["content_path"]] = metadata[b'content_path']
-    out[chunk_headers["content_chunkmethod"]] = metadata[b'chunk_method']
-    out[chunk_headers["content_policy"]] = metadata[b'policy']
-    out[chunk_headers["container_id"]] = metadata[b'container_id']
-    out[chunk_headers["oio_version"]] = metadata[b'oio_version']
+    out[chunk_headers["content_id"]] = metadata['id']
+    out[chunk_headers["content_version"]] = metadata['version']
+    out[chunk_headers["content_path"]] = metadata['content_path']
+    out[chunk_headers["content_chunkmethod"]] = metadata['chunk_method']
+    out[chunk_headers["content_policy"]] = metadata['policy']
+    out[chunk_headers["container_id"]] = metadata['container_id']
+    out[chunk_headers["oio_version"]] = metadata['oio_version']
 
-    for key in [b'metachunk_hash', b'metachunk_size', b'chunk_hash']:
+    for key in ['metachunk_hash', 'metachunk_size', 'chunk_hash']:
         val = metadata.get(key)
         if val is not None:
             out[chunk_headers[key]] = metadata[key]
 
-    header = {k: quote_plus(str(v)) for (k, v) in iteritems(out)}
+    header = {k: quote_plus(v.encode('utf-8')) for (k, v) in iteritems(out)}
 
-    header[chunk_headers["full_path"]] = b','.join(metadata[b'full_path'])
+    header[chunk_headers["full_path"]] = ','.join(metadata['full_path'])
     return header
 
 

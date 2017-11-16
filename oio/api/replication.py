@@ -52,8 +52,8 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
                  read_timeout=None, headers=None):
         super(ReplicatedMetachunkWriter, self).__init__(
             storage_method=storage_method, quorum=quorum)
-        self.sysmeta = self._encode(sysmeta)
-        self.meta_chunk = self._encode(meta_chunk)
+        self.sysmeta = sysmeta
+        self.meta_chunk = meta_chunk
         self.checksum = checksum
         self.connection_timeout = connection_timeout or io.CONNECTION_TIMEOUT
         self.write_timeout = write_timeout or io.CHUNK_TIMEOUT
@@ -114,7 +114,7 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
                         if len(data) == 0:
                             for conn in current_conns:
                                 if not conn.failed:
-                                    conn.queue.put('0\r\n\r\n')
+                                    conn.queue.put(b'0\r\n\r\n')
                             break
                     self.checksum.update(data)
                     meta_checksum.update(data)
@@ -122,7 +122,7 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
                     # copy current_conns to be able to remove a failed conn
                     for conn in current_conns[:]:
                         if not conn.failed:
-                            conn.queue.put('%x\r\n%s\r\n' % (len(data), data))
+                            conn.queue.put(b'%x\r\n%s\r\n' % (len(data), data))
                         else:
                             current_conns.remove(conn)
                             failed_chunks.append(conn.chunk)
@@ -177,9 +177,9 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
         raw_url = chunk["url"]
         parsed = urlparse(raw_url)
         try:
-            chunk_path = parsed.path.split(b'/')[-1]
+            chunk_path = parsed.path.split('/')[-1]
             hdrs = headers_from_object_metadata(self.sysmeta)
-            hdrs[chunk_headers["chunk_pos"]] = chunk[b"pos"]
+            hdrs[chunk_headers["chunk_pos"]] = chunk["pos"]
             hdrs[chunk_headers["chunk_id"]] = chunk_path
             hdrs.update(self.headers)
             hdrs = self._encode(hdrs)

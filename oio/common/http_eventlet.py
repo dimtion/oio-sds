@@ -27,7 +27,7 @@ from builtins import str as text
 
 class CustomHTTPResponse(HTTPResponse):
     def __init__(self, sock, debuglevel=0, strict=0,
-                 method=None):
+                 method=None, url=None):
         self.sock = sock
         try:
             self._actual_socket = sock.fd._sock
@@ -38,7 +38,7 @@ class CustomHTTPResponse(HTTPResponse):
         self.strict = strict
         self._method = method
 
-        self.msg = None
+        self.headers = self.msg = None
 
         self.version = _UNKNOWN
         self.status = _UNKNOWN
@@ -107,7 +107,7 @@ def http_connect(host, method, path, headers=None, query_string=None):
         except UnicodeError as e:
             logging.exception('ERROR encoding to UTF-8: %s', str(e))
     path = quote(b'/' + path)
-    conn = CustomHttpConnection(host.decode("utf-8"))
+    conn = CustomHttpConnection(host)
     if query_string:
         path += b'?' + query_string
     conn.path = path
@@ -116,8 +116,8 @@ def http_connect(host, method, path, headers=None, query_string=None):
         for header, value in headers.items():
             if isinstance(value, list):
                 for k in value:
-                    conn.putheader(header, str(k))
+                    conn.putheader(header, (k.decode('utf-8')))
             else:
-                conn.putheader(header, str(value))
+                conn.putheader(header, value.decode('utf-8'))
     conn.endheaders()
     return conn
