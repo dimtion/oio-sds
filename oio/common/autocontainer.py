@@ -14,6 +14,7 @@
 # License along with this library.
 
 import re
+from past.builtins import basestring
 from itertools import takewhile
 from ctypes import CDLL, c_char_p, c_uint, create_string_buffer
 
