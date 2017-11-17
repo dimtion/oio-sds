@@ -99,4 +99,4 @@ def decode_chunked_body(raw_body):
 
 
 def empty_stream():
-    return BytesIO("")
+    return BytesIO(b'')
