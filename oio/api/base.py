@@ -14,7 +14,7 @@
 # License along with this library.
 
 import sys
-from six import text_type
+from six import text_type, iteritems
 
 from oio.common.json import json as jsonlib
 from oio.common.http_urllib3 import urllib3, get_pool_manager
@@ -55,7 +55,7 @@ class HttpApi(object):
 
         if not pool_manager:
             pool_manager_conf = {k: int(v)
-                                 for k, v in kwargs.items()
+                                 for k, v in iteritems(kwargs)
                                  if k in _POOL_MANAGER_OPTIONS_KEYS}
             pool_manager = get_pool_manager(**pool_manager_conf)
         self.pool_manager = pool_manager
@@ -92,12 +92,12 @@ class HttpApi(object):
         code >= 400
         """
         # Filter arguments that are not recognized by Requests
-        out_kwargs = {k: v for k, v in list(kwargs.items())
+        out_kwargs = {k: v for k, v in iteritems(kwargs)
                       if k in URLLIB3_REQUESTS_KWARGS}
 
         # Ensure headers are all strings
         if headers:
-            out_headers = {k: text_type(v) for k, v in list(headers.items())}
+            out_headers = {k: text_type(v) for k, v in headers.items()}
         else:
             out_headers = dict()
         if self.admin_mode or admin_mode:
@@ -120,7 +120,7 @@ class HttpApi(object):
         # Add query string
         if params:
             out_param = []
-            for k, v in list(params.items()):
+            for k, v in params.items():
                 if v is not None:
                     if isinstance(v, text_type):
                         v = text_type(v).encode('utf-8')

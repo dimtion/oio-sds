@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from six import iteritems
 import os
 from logging import getLogger
 from functools import cmp_to_key
@@ -313,7 +314,7 @@ class ShowObject(ObjectCommandMixin, show.ShowOne):
                 'hash': data['hash'],
                 'ctime': data['ctime'],
                 'policy': data['policy']}
-        for k, v in data['properties'].items():
+        for k, v in iteritems(data['properties']):
             info['meta.' + k] = v
         return list(zip(*sorted(info.items())))
 

@@ -15,6 +15,7 @@
 
 """Container-related commands"""
 
+from six import iteritems
 from logging import getLogger
 from cliff import command, show, lister
 from time import time
@@ -249,7 +250,7 @@ class ShowContainer(show.ShowOne):
                 'max_versions': sys.get('sys.m2.policy.version',
                                         "Namespace default"),
                 }
-        for k, v in data['properties'].items():
+        for k, v in iteritems(data['properties']):
             info['meta.' + k] = v
         return list(zip(*sorted(info.items())))
 

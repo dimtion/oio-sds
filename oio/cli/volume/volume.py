@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from six import iteritems
 from logging import getLogger
 from cliff import lister, show
 
@@ -37,7 +38,7 @@ class ShowAdminVolume(show.ShowOne):
         output.append(('volume', parsed_args.volume))
         data = self.app.client_manager.volume.volume_admin_show(
             volume=parsed_args.volume)
-        for k, v in sorted(data.items()):
+        for k, v in sorted(iteritems(data)):
             output.append((k, v))
         return list(zip(*output))
 
@@ -279,7 +280,7 @@ class DisplayVolumeAssignation(lister.Lister):
                 if rdir['addr'] not in rdir_by_addr:
                     rdir['managed_rawx'] = list()
                     rdir_by_addr[rdir["addr"]] = rdir
-            for addr, rdir in rdir_by_addr.items():
+            for addr, rdir in iteritems(rdir_by_addr):
                 results.append((addr,
                                 len(rdir['managed_rawx']),
                                 ' '.join(rdir['managed_rawx'])))
