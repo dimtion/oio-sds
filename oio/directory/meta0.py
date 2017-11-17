@@ -15,8 +15,8 @@
 
 
 """Meta0 client and meta1 balancing operations"""
-from six import itervalues, iteritems
-from past.builtins import xrange, basestring
+from six import itervalues, iteritems, string_types
+from six.moves import range
 import random
 
 from oio.common.json import json
@@ -105,7 +105,7 @@ class PrefixMapping(object):
         - service IP address if `default` is None or "addr"
         - `default` for any other value.
         """
-        if isinstance(svc, basestring):
+        if isinstance(svc, string_types):
             svc = self.services.get(svc, {"addr": svc})
         loc = svc.get("tags", {}).get("tag.loc", default)
         if not loc or loc == "addr":
@@ -131,14 +131,14 @@ class PrefixMapping(object):
 
     def get_score(self, svc):
         """Get the score of a service, or 0 if it is unknown"""
-        if isinstance(svc, basestring):
+        if isinstance(svc, string_types):
             svc = self.services.get(svc, {'addr': svc})
         score = int(svc.get("score", 0))
         return score
 
     def get_managed_bases(self, svc):
         """Get the list of bases managed by the service"""
-        if isinstance(svc, basestring):
+        if isinstance(svc, string_types):
             svc = self.services.get(svc, {'addr': svc})
         return svc.get('bases', set())
 
@@ -156,8 +156,8 @@ class PrefixMapping(object):
         min_base = self.prefix_to_base(pfx)
         max_base = str(min_base[:self.digits]).ljust(4, 'F')
         return ["%04X" % base
-                for base in xrange(int(min_base, 16),
-                                   int(max_base, 16) + 1)]
+                for base in range(int(min_base, 16),
+                                  int(max_base, 16) + 1)]
 
     def _extend(self, bases=None):
         """
@@ -194,7 +194,7 @@ class PrefixMapping(object):
         Load the mapping from the cluster,
         from a JSON string or from a dictionary.
         """
-        if isinstance(json_mapping, basestring):
+        if isinstance(json_mapping, string_types):
             raw_mapping = json.loads(json_mapping)
         elif isinstance(json_mapping, dict):
             raw_mapping = json_mapping
@@ -373,7 +373,7 @@ class PrefixMapping(object):
         if not strategy:
             strategy = self.find_services_random
         last_percent = 0
-        for base_int in xrange(0, self.num_bases()):
+        for base_int in range(0, self.num_bases()):
             base = "%0*X" % (self.digits, base_int)
             services = strategy()
             self.assign_services(base, services, fail_if_already_set=True)
@@ -423,7 +423,7 @@ class PrefixMapping(object):
         Unassign all bases of `bases_to_remove` from `svc`,
         and assign them to other services using `strategy`.
         """
-        if isinstance(svc, basestring):
+        if isinstance(svc, string_types):
             svc = self.services[svc]
         saved_score = svc["score"]
         svc["score"] = 0

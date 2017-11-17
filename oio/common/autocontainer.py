@@ -14,7 +14,7 @@
 # License along with this library.
 
 import re
-from past.builtins import basestring
+from six import string_types
 from itertools import takewhile
 from ctypes import CDLL, c_char_p, c_uint, create_string_buffer
 
@@ -41,7 +41,7 @@ class ContainerBuilder(object):
 
     def verify(self, name):
         """Verify that `name` is an autocontainer"""
-        return isinstance(name, basestring)
+        return isinstance(name, string_types)
 
 
 class HashedContainerBuilder(ContainerBuilder):
@@ -138,7 +138,7 @@ class RegexContainerBuilder(object):
     """
 
     def __init__(self, patterns, builder=ContainerBuilder, **kwargs):
-        if isinstance(patterns, basestring):
+        if isinstance(patterns, string_types):
             patterns = (patterns, )
         if not patterns:
             raise ValueError("You must provide at least one pattern")
