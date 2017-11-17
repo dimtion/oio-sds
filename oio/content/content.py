@@ -17,7 +17,6 @@ try:
     from urllib.parse import quote_plus
 except ImportError:
     from urllib import quote_plus
-from past.builtins import cmp
 
 from oio.common import exceptions as exc
 from oio.common.exceptions import ClientException, OrphanChunk
@@ -25,6 +24,11 @@ from oio.common.logger import get_logger
 from oio.blob.client import BlobClient
 from oio.container.client import ContainerClient
 from oio.common.constants import OIO_VERSION
+
+
+def cmp(x, y):
+    """cmp function as a workaround for python3"""
+    return (x > y) - (x < y)
 
 
 class Content(object):

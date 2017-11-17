@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from io import BufferedReader, RawIOBase, IOBase
 import itertools
 import logging
-from builtins import str as text
+from six import text_type
 try:
     from urllib.parse import urlparse
 except ImportError:
@@ -249,7 +249,7 @@ class ChunkReader(object):
             return {key: self._encode(value) for key, value in input.items()}
         elif isinstance(input, list):
             return [self._encode(element) for element in input]
-        elif isinstance(input, text):
+        elif isinstance(input, text_type):
             return input.encode('utf-8')
         else:
             return input

@@ -16,7 +16,7 @@
 
 import os
 import sys
-from future.utils import iteritems
+from six import iteritems
 import yaml
 from eventlet.green import socket
 from eventlet.queue import Empty, LifoQueue

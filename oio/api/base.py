@@ -14,7 +14,7 @@
 # License along with this library.
 
 import sys
-from builtins import str as text
+from six import text_type
 
 from oio.common.json import json as jsonlib
 from oio.common.http_urllib3 import urllib3, get_pool_manager
@@ -97,7 +97,7 @@ class HttpApi(object):
 
         # Ensure headers are all strings
         if headers:
-            out_headers = {k: text(v) for k, v in list(headers.items())}
+            out_headers = {k: text_type(v) for k, v in list(headers.items())}
         else:
             out_headers = dict()
         if self.admin_mode or admin_mode:
@@ -122,8 +122,8 @@ class HttpApi(object):
             out_param = []
             for k, v in list(params.items()):
                 if v is not None:
-                    if isinstance(v, text):
-                        v = text(v).encode('utf-8')
+                    if isinstance(v, text_type):
+                        v = text_type(v).encode('utf-8')
                     out_param.append((k, v))
             encoded_args = urlencode(out_param)
             url += '?' + encoded_args

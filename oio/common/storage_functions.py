@@ -15,7 +15,7 @@
 
 
 import random
-from future.utils import iteritems
+from six import iteritems
 
 from oio.api.io import ChunkReader, READ_CHUNK_SIZE
 from oio.api.ec import ECChunkDownloadHandler

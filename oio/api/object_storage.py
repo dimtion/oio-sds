@@ -15,6 +15,8 @@
 
 
 from __future__ import absolute_import
+from six import string_types
+
 from io import BytesIO
 import logging
 import os
@@ -27,7 +29,6 @@ try:
     from urllib.parse import quote_plus
 except ImportError:
     from urllib import quote_plus
-from past.builtins import basestring
 
 from oio.common import exceptions as exc
 from oio.api.ec import ECWriteHandler
@@ -427,7 +428,7 @@ class ObjectStorageApi(object):
             raise exc.MissingData()
         src = data if data is not None else file_or_path
         if src is file_or_path:
-            if isinstance(file_or_path, basestring):
+            if isinstance(file_or_path, string_types):
                 if not os.path.exists(file_or_path):
                     raise exc.FileNotFound("File '%s' not found." %
                                            file_or_path)

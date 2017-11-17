@@ -22,7 +22,7 @@ except ImportError:
     from urllib import quote
 from eventlet.green.httplib import HTTPConnection, HTTPResponse, _UNKNOWN, \
         CONTINUE, HTTPMessage
-from builtins import str as text
+from six import text_type
 
 
 class CustomHTTPResponse(HTTPResponse):
@@ -101,7 +101,7 @@ class CustomHttpConnection(HTTPConnection):
 
 
 def http_connect(host, method, path, headers=None, query_string=None):
-    if isinstance(path, text):
+    if isinstance(path, text_type):
         try:
             path = path.encode('utf-8')
         except UnicodeError as e:

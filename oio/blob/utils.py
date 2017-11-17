@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from future.utils import iteritems
+from six import iteritems
 from oio.common import exceptions as exc
 from oio.common.xattr import read_user_xattr
 from oio.common.constants import chunk_xattr_keys, chunk_xattr_keys_optional, \

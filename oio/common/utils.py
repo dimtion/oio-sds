@@ -22,12 +22,12 @@ from random import getrandbits
 from io import RawIOBase
 from itertools import islice
 from codecs import getdecoder, getencoder
-from past.builtins import xrange
+from six.moves import range
 try:
     from urllib.parse import quote as _quote
 except ImportError:
     from urllib import quote as _quote
-from builtins import str as text
+from six import text_type
 from oio.common.exceptions import OioException
 
 
@@ -43,7 +43,7 @@ utf8_encoder = getencoder('utf-8')
 
 
 def quote(value, safe='/'):
-    if isinstance(value, text):
+    if isinstance(value, text_type):
         (value, _len) = utf8_encoder(value, 'replace')
     (valid_utf8_str, _len) = utf8_decoder(value, 'replace')
     return _quote(valid_utf8_str.encode('utf-8'), safe)
@@ -132,7 +132,7 @@ class RingBuffer(list):
         raise self.InvalidOperation('Delete impossible in RingBuffer')
 
     def __iter__(self):
-        for i in xrange(0, self._count):
+        for i in range(0, self._count):
             yield self[i]
 
 

@@ -16,7 +16,7 @@
 import re
 import os
 
-from future.utils import iteritems
+from six import iteritems
 import pkg_resources
 from eventlet import GreenPool, sleep
 

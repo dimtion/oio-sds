@@ -18,7 +18,7 @@ try:
     from urllib.parse import quote_plus
 except ImportError:
     from urllib import quote_plus
-from future.utils import iteritems
+from six import iteritems
 
 from oio.common.constants import chunk_headers
 from oio.common.http_eventlet import CustomHttpConnection \

@@ -21,7 +21,7 @@ try:
     from urllib.parse import urlparse
 except ImportError:
     from urlparse import urlparse
-from builtins import str as text
+from six import text_type
 from oio.common import exceptions as exc
 from oio.common.exceptions import SourceReadError
 from oio.common.http import headers_from_object_metadata
@@ -65,7 +65,7 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
             return {key: self._encode(value) for key, value in input.items()}
         elif isinstance(input, list):
             return [self._encode(element) for element in input]
-        elif isinstance(input, text):
+        elif isinstance(input, text_type):
             return input.encode('utf-8')
         else:
             return input
@@ -201,7 +201,7 @@ class ReplicatedMetachunkWriter(io.MetachunkWriter):
         """
         while True:
             data = conn.queue.get()
-            if isinstance(data, text):
+            if isinstance(data, text_type):
                 data = data.encode('utf-8')
             if not conn.failed:
                 try:
