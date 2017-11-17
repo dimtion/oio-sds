@@ -249,7 +249,7 @@ class TestReplication(unittest.TestCase):
         bodies = []
 
         for conn_id, info in put_reqs.items():
-            body, trailers = decode_chunked_body(''.join(info['parts']))
+            body, trailers = decode_chunked_body(b''.join(info['parts']))
             # TODO check trailers?
             bodies.append(body)
 
@@ -384,7 +384,7 @@ class TestReplication(unittest.TestCase):
         meta_chunk = self.meta_chunk()
 
         responses = [
-            FakeResponse(404, ''),
+            FakeResponse(404, b''),
             FakeResponse(200, test_data),
             FakeResponse(200, test_data),
         ]

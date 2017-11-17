@@ -65,7 +65,7 @@ class TestEC(unittest.TestCase):
     def meta_chunk_copy(self):
         return deepcopy(self._meta_chunk)
 
-    def checksum(self, d=''):
+    def checksum(self, d=b''):
         return md5(d)
 
     def test_write_simple(self):
