@@ -13,8 +13,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from six import iteritems
 import os
 from logging import getLogger
+from functools import cmp_to_key
 from oio.common.http_urllib3 import get_pool_manager
 from oio.common.utils import depaginate
 from cliff import command, lister, show
@@ -311,9 +313,9 @@ class ShowObject(ObjectCommandMixin, show.ShowOne):
                 'hash': data['hash'],
                 'ctime': data['ctime'],
                 'policy': data['policy']}
-        for k, v in data['properties'].iteritems():
+        for k, v in iteritems(data['properties']):
             info['meta.' + k] = v
-        return zip(*sorted(info.iteritems()))
+        return list(zip(*sorted(info.items())))
 
 
 class SetObject(ObjectCommandMixin, command.Command):
@@ -584,7 +586,7 @@ class ListObject(ContainerCommandMixin, lister.Lister):
 
             def _format_props(props):
                 prop_list = ["%s=%s" % (k, v) for k, v
-                             in props.iteritems()]
+                             in props.items()]
                 if parsed_args.formatter == 'table':
                     prop_string = "\n".join(prop_list)
                 elif parsed_args.formatter in ('value', 'csv'):
@@ -753,4 +755,4 @@ class LocateObject(ObjectCommandMixin, lister.Lister):
             chunks = ((c['pos'], c['url'], c['size'],
                        c['hash']) for c in data[1])
 
-        return columns, sorted(chunks, cmp=sort_chunk_pos)
+        return columns, sorted(chunks, key=cmp_to_key(sort_chunk_pos))

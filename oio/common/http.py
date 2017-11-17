@@ -14,8 +14,12 @@
 # License along with this library.
 
 import re
+try:
+    from urllib.parse import quote_plus
+except ImportError:
+    from urllib import quote_plus
+from six import iteritems
 
-from urllib import quote_plus
 from oio.common.constants import chunk_headers
 from oio.common.http_eventlet import CustomHttpConnection \
     as NewCustomHttpConnection
@@ -110,14 +114,15 @@ def headers_from_object_metadata(metadata):
     out[chunk_headers["content_chunkmethod"]] = metadata['chunk_method']
     out[chunk_headers["content_policy"]] = metadata['policy']
     out[chunk_headers["container_id"]] = metadata['container_id']
-    out[chunk_headers["oio_version"]] = metadata["oio_version"]
+    out[chunk_headers["oio_version"]] = metadata['oio_version']
 
     for key in ['metachunk_hash', 'metachunk_size', 'chunk_hash']:
         val = metadata.get(key)
         if val is not None:
             out[chunk_headers[key]] = metadata[key]
 
-    header = {k: quote_plus(str(v)) for (k, v) in out.iteritems()}
+    header = {k: quote_plus(v.encode('utf-8')) for (k, v) in iteritems(out)}
+
     header[chunk_headers["full_path"]] = ','.join(metadata['full_path'])
     return header
 
