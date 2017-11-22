@@ -191,9 +191,11 @@ fi
 
 if is_running_test_suite "unit" ; then
 	echo -e "\n### UNIT tests"
+        echo -e "\nPython version:"
+        python --version
 	cd $SRCDIR
 	tox -e pep8
-	tox -e py27
+	tox -e py
 	cd $WRKDIR
 	make -C tests/unit test
 fi
