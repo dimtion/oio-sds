@@ -18,6 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
+from six import iterkeys, iteritems
+from six.moves import xrange
 
 import errno
 import grp
@@ -1034,7 +1036,7 @@ def gridinit(env):
 
 def mkdir_noerror(d):
     try:
-        os.makedirs(d, 0700)
+        os.makedirs(d, 0o700)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise e
@@ -1239,7 +1241,7 @@ def generate(options):
         tpl = Template(tpl)
         with open(gridinit(env), 'a+') as f:
             f.write(tpl.safe_substitute(env))
-            for key in (k for k in env.iterkeys() if k.startswith("env.")):
+            for key in (k for k in iterkeys(env) if k.startswith("env.")):
                 f.write("%s=%s\n" % (key, env[key]))
         # watcher
         tpl = Template(template_meta_watch)
@@ -1341,7 +1343,7 @@ def generate(options):
     with open(gridinit(env), 'a+') as f:
         tpl = Template(template_gridinit_proxy)
         f.write(tpl.safe_substitute(env))
-        for key in (k for k in env.iterkeys() if k.startswith("env.")):
+        for key in (k for k in iterkeys(env) if k.startswith("env.")):
             f.write("%s=%s\n" % (key, env[key]))
 
     # ecd
@@ -1453,7 +1455,7 @@ def generate(options):
         tpl = Template(template_local_ns)
         f.write(tpl.safe_substitute(env))
         # Now dump the configuration
-        for k, v in options['config'].iteritems():
+        for k, v in iteritems(options['config']):
             strv = str(v)
             if isinstance(v,bool):
                 strv = strv.lower()
@@ -1501,7 +1503,7 @@ def dump_config(conf):
 
 
 def merge_config(base, inc):
-    for k, v in inc.iteritems():
+    for k, v in iteritems(inc):
         if isinstance(v, dict):
             if k not in base:
                 base[k] = v
