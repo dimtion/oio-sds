@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.
 
+from six.moves import xrange
+
 from hashlib import md5
 import random
 import tarfile
