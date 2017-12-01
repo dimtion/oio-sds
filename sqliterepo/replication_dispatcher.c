@@ -44,23 +44,35 @@ License along with this library.
 	} \
 } while (0)
 
+#define ADMIN "admin"
+
 /* ------------------------------------------------------------------------- */
 
 static gchar *
-_prepare_statement(Table_t *t)
+_prepare_statement(Table_t *t, gboolean is_admin)
 {
 	GString *gstr = g_string_sized_new(256);
 	g_string_append_static(gstr, "REPLACE INTO ");
 	g_string_append_len(gstr, (char*)t->name.buf, t->name.size);
-	g_string_append_static(gstr, " (ROWID");
+	g_string_append_static(gstr, " (");
+	if (!is_admin)
+		g_string_append_static(gstr, "ROWID,");
+
 	for (int i=0; i < t->header.list.count; i++) {
 		RowName_t *r = t->header.list.array[i];
-		g_string_append_c(gstr, ',');
+		if (i > 0)
+			g_string_append_c(gstr, ',');
 		g_string_append_len(gstr, (char*)r->name.buf, r->name.size);
 	}
-	g_string_append_static(gstr, ") VALUES (?");
+
+	g_string_append_static(gstr, ") VALUES (");
+	if (!is_admin)
+		g_string_append_static(gstr, " ?,");
+
 	for (int i=0; i < t->header.list.count; i++) {
-		g_string_append_static(gstr, ",?");
+		if (i > 0)
+			g_string_append_c(gstr, ',');
+		g_string_append_static(gstr, "?");
 	}
 	g_string_append_c(gstr, ')');
 
@@ -75,7 +87,14 @@ replicate_table_updates(struct sqlx_sqlite3_s *sq3, Table_t *table)
 	GError *err = NULL;
 	sqlite3_stmt *stmt = NULL;
 
-	sql = _prepare_statement(table);
+	/* if there is no table header, we won't be able to generate a valid
+	 * UPDATE/REPLACE statement. The current table at best only carries
+	 * DELETE commands (with only a ROWID) */
+	if (table->header.list.count <= 0)
+		return NULL;
+
+	gboolean is_admin = !(g_strcmp0((char*)table->name.buf, ADMIN));
+	sql = _prepare_statement(table, is_admin);
 	sqlite3_prepare_debug(rc, sq3->db, sql, -1, &stmt, NULL);
 	g_free(sql);
 
@@ -91,8 +110,8 @@ replicate_table_updates(struct sqlx_sqlite3_s *sq3, Table_t *table)
 			sqlite3_reset(stmt);
 			sqlite3_clear_bindings(stmt);
 
-			sqlite3_bind_int64(stmt, 1, rowid);
-
+			if (!is_admin)
+				sqlite3_bind_int64(stmt, 1, rowid);
 			/* Now apply all the field values */
 			for (j=0; j<row->fields->list.count ;j++) {
 				int pos = 0;
@@ -101,7 +120,7 @@ replicate_table_updates(struct sqlx_sqlite3_s *sq3, Table_t *table)
 
 				field = row->fields->list.array[j];
 				asn_INTEGER2long(&(field->pos), &lpos);
-				pos = lpos + 2;
+				pos = lpos + (is_admin? 1 : 2);
 				switch (field->value.present) {
 					case RowFieldValue_PR_NOTHING:
 					case RowFieldValue_PR_n:
@@ -327,6 +346,7 @@ label_rollback:
 		/* keep the current version for later */
 		sqlx_admin_reload(sq3);
 		postvers = version_extract_from_admin(sq3);
+		version_debug("POST:", postvers);
 
 		gint64 worst = 0;
 		err = version_validate_diff(postvers, expected_version, &worst);
@@ -524,7 +544,7 @@ _pipe_base_from(const gchar *source, struct sqlx_repository_s *repo,
 		return err2;
 	}
 
-	return peer_dump(source, name, TRUE, _pipe_from_cb, NULL);
+	return peer_dump(source, name, TRUE, _pipe_from_cb, NULL, oio_ext_get_deadline());
 }
 
 static GError *
@@ -1142,7 +1162,7 @@ do_query_after_open(struct gridd_reply_ctx_s *reply_ctx,
 
 		if (0 != action) {
 			NAME2CONST(n, sq3->name);
-			err = sqlx_repository_status_base(sq3->repo, &n);
+			err = sqlx_repository_status_base(sq3->repo, &n, reply_ctx->deadline);
 			if (NULL != err) {
 				if (err->code != CODE_REDIRECT)
 					g_prefix_error(&err, "Status error: ");
@@ -1211,7 +1231,7 @@ _checked_open(struct gridd_reply_ctx_s *reply_ctx, sqlx_repository_t *repo,
 }
 
 static GError *
-_check_init_flag(struct sqlx_sqlite3_s *sq3, gboolean autocreate)
+_check_init_flag(struct sqlx_sqlite3_s *sq3, gboolean autocreate, gint64 deadline)
 {
 	GError *err = NULL;
 	if (!sqlx_admin_has(sq3, SQLX_ADMIN_INITFLAG)) {
@@ -1221,7 +1241,7 @@ _check_init_flag(struct sqlx_sqlite3_s *sq3, gboolean autocreate)
 			err = NEWERROR(CODE_CONTAINER_NOTFOUND, "Base does not exist");
 		} else {
 			NAME2CONST(n, sq3->name);
-			err = sqlx_repository_status_base(sq3->repo, &n);
+			err = sqlx_repository_status_base(sq3->repo, &n, deadline);
 			if (!err) { /* We are master */
 				struct sqlx_repctx_s *repctx = NULL;
 				GRID_DEBUG("Autocreate %s, inserting %s flag",
@@ -1249,7 +1269,7 @@ do_query(struct gridd_reply_ctx_s *reply_ctx, sqlx_repository_t *repo,
 	if (err != NULL)
 		return err;
 
-	err = _check_init_flag(sq3, TRUE);
+	err = _check_init_flag(sq3, TRUE, reply_ctx->deadline);
 	if (!err)
 		err = do_query_after_open(reply_ctx, sq3, params, result);
 
@@ -1283,7 +1303,7 @@ do_destroy(struct gridd_reply_ctx_s *reply, struct sqlx_repository_s *repo,
 			goto end_label;
 		} else {
 			EXTRA_ASSERT(peers != NULL);
-			err = sqlx_remote_execute_DESTROY_many(peers, NULL, name);
+			err = sqlx_remote_execute_DESTROY_many(peers, NULL, name, oio_ext_get_deadline());
 			g_strfreev(peers);
 		}
 	}
@@ -1440,8 +1460,12 @@ _handler_REPLICATE(struct gridd_reply_ctx_s *reply,
 	}
 
 	err = sqlx_repository_open_and_lock(repo, &n0,
-			SQLX_OPEN_LOCAL|SQLX_OPEN_CREATE|SQLX_OPEN_URGENT, &sq3, NULL);
+			SQLX_OPEN_LOCAL|SQLX_OPEN_URGENT, &sq3, NULL);
 	if (NULL != err) {
+		if (err->code == CODE_CONTAINER_NOTFOUND) {
+			reply->send_error(CODE_PIPEFROM, err);
+			return TRUE;
+		}
 		reply->send_error(0, err);
 		return TRUE;
 	}
@@ -1502,7 +1526,7 @@ _handler_STATUS(struct gridd_reply_ctx_s *reply,
 		return TRUE;
 	}
 
-	if (NULL != (err = sqlx_repository_status_base(repo, &n0)))
+	if (NULL != (err = sqlx_repository_status_base(repo, &n0, reply->deadline)))
 		reply->send_error(0, err);
 	else
 		reply->send_reply(CODE_FINAL_OK, "MASTER");
@@ -1524,7 +1548,7 @@ _handler_ISMASTER(struct gridd_reply_ctx_s *reply,
 		return TRUE;
 	}
 
-	err = sqlx_repository_status_base(repo, &n0);
+	err = sqlx_repository_status_base(repo, &n0, reply->deadline);
 	if (NULL == err)
 		reply->send_reply(CODE_FINAL_OK, "MASTER");
 	else {
@@ -1634,7 +1658,7 @@ _handler_PIPETO(struct gridd_reply_ctx_s *reply,
 	reply->send_reply(CODE_TEMPORARY, "Dump done");
 
 	/* forward the dump to the target */
-	if (NULL != (err = peer_restore(target, &n0, dump)))
+	if (NULL != (err = peer_restore(target, &n0, dump, oio_ext_get_deadline())))
 		reply->send_error(CODE_INTERNAL_ERROR, err);
 	else
 		reply->send_reply(CODE_FINAL_OK, "OK");
@@ -1879,10 +1903,11 @@ _handler_PROPDEL(struct gridd_reply_ctx_s *reply,
 			}
 		}
 
-		if (repctx)
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 
 		sqlx_repository_unlock_and_close_noerror(sq3);
 		if (err)
@@ -2007,10 +2032,11 @@ _handler_PROPSET(struct gridd_reply_ctx_s *reply,
 			}
 		}
 
-		if (!(flags&FLAG_LOCAL))
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 	}
 	sqlx_repository_unlock_and_close_noerror(sq3);
 
@@ -2057,10 +2083,11 @@ _handler_ENABLE(struct gridd_reply_ctx_s *reply,
 		else
 			err = NEWERROR(CODE_CONTAINER_ENABLED, "Already enabled");
 
-		if (!(flags&FLAG_LOCAL))
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 	}
 
 	if (NULL != err)
@@ -2109,10 +2136,11 @@ _handler_FREEZE(struct gridd_reply_ctx_s *reply,
 		else
 			err = NEWERROR(CODE_CONTAINER_DISABLED, "Container disabled");
 
-		if (!(flags&FLAG_LOCAL))
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 	}
 
 	if (NULL != err)
@@ -2161,10 +2189,11 @@ _handler_DISABLE(struct gridd_reply_ctx_s *reply,
 		else
 			err = NEWERROR(CODE_CONTAINER_DISABLED, "Container disabled");
 
-		if (!(flags&FLAG_LOCAL))
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 	}
 
 	if (NULL != err)
@@ -2211,10 +2240,11 @@ _handler_DISABLE2(struct gridd_reply_ctx_s *reply,
 		else
 			sqlx_admin_set_status(sq3, ADMIN_STATUS_DISABLED);
 
-		if (!(flags&FLAG_LOCAL))
+		if (repctx) {
 			err = sqlx_transaction_end(repctx, err);
-		else
+		} else {
 			sqlx_admin_save_lazy_tnx (sq3);
+		}
 	}
 
 	if (NULL != err)

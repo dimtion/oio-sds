@@ -13,8 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.
 
-import sys
-from six import text_type, iteritems, reraise
+from six import text_type, iteritems
 
 from oio.common.json import json as jsonlib
 from oio.common.http_urllib3 import urllib3, get_pool_manager
@@ -25,7 +24,8 @@ try:
     from urllib.parse import urlencode
 except ImportError:
     from urllib import urlencode
-from oio.common.constants import ADMIN_HEADER, CONNECTION_TIMEOUT, READ_TIMEOUT
+from oio.common.constants import ADMIN_HEADER, \
+    TIMEOUT_HEADER, PERFDATA_HEADER, CONNECTION_TIMEOUT, READ_TIMEOUT
 
 _POOL_MANAGER_OPTIONS_KEYS = ["pool_connections", "pool_maxsize",
                               "max_retries"]
@@ -49,6 +49,11 @@ class HttpApi(object):
         :type endpoint: `str`
         :keyword admin_mode: allow talking to a slave/worm namespace
         :type admin_mode: `bool`
+
+        :keyword perfdata: optional dictionary that will be filled with
+            metrics of time spent to resolve the meta2 address and
+            to do the meta2 request.
+        :type perfdata: `dict`
         """
         super(HttpApi, self).__init__()
         self.endpoint = endpoint
@@ -61,6 +66,7 @@ class HttpApi(object):
         self.pool_manager = pool_manager
 
         self.admin_mode = kwargs.get('admin_mode', False)
+        self.perfdata = kwargs.get('perfdata')
 
     def _direct_request(self, method, url, headers=None, data=None, json=None,
                         params=None, admin_mode=False, pool_manager=None,
@@ -108,11 +114,23 @@ class HttpApi(object):
             out_kwargs['timeout'] = urllib3.Timeout(
                 connect=kwargs.get('connection_timeout', CONNECTION_TIMEOUT),
                 read=kwargs.get('read_timeout', READ_TIMEOUT))
+        if TIMEOUT_HEADER not in out_headers:
+            to = out_kwargs['timeout']
+            if isinstance(to, urllib3.Timeout):
+                to = to.read_timeout
+            else:
+                to = float(to)
+            out_headers[TIMEOUT_HEADER] = int(to * 1000000.0)
 
         # Convert json and add Content-Type
         if json:
             out_headers["Content-Type"] = "application/json"
             data = jsonlib.dumps(json)
+
+        # Trigger performance measurments
+        perfdata = kwargs.get('perfdata', self.perfdata)
+        if perfdata is not None:
+            out_headers[PERFDATA_HEADER] = 'enabled'
 
         out_kwargs['headers'] = out_headers
         out_kwargs['body'] = data
@@ -131,6 +149,10 @@ class HttpApi(object):
         if not pool_manager:
             pool_manager = self.pool_manager
 
+        def _reraise(exc_type, exc_value):
+            reqid = out_headers.get('X-oio-req-id')
+            exceptions.reraise(exc_type, exc_value, "reqid=%s" % reqid)
+
         try:
             resp = pool_manager.request(method, url, **out_kwargs)
             body = resp.data
@@ -139,18 +161,23 @@ class HttpApi(object):
                     body = jsonlib.loads(body)
                 except ValueError:
                     pass
+            if perfdata is not None and PERFDATA_HEADER in resp.headers:
+                for header_val in resp.headers[PERFDATA_HEADER].split(','):
+                    kv = header_val.split('=', 1)
+                    pdat = perfdata.get(kv[0], 0.0) + float(kv[1]) / 1000000.0
+                    perfdata[kv[0]] = pdat
         except MaxRetryError as exc:
             if isinstance(exc.reason, NewConnectionError):
-                reraise(exceptions.OioNetworkException, exc, sys.exc_info()[2])
+                _reraise(exceptions.OioNetworkException, exc)
             if isinstance(exc.reason, TimeoutError):
-                reraise(exceptions.OioTimeout, exc, sys.exc_info()[2])
-            reraise(exceptions.OioNetworkException, exc, sys.exc_info()[2])
+                _reraise(exceptions.OioTimeout, exc)
+            _reraise(exceptions.OioNetworkException, exc)
         except (ProtocolError, ProxyError, ClosedPoolError) as exc:
-            reraise(exceptions.OioNetworkException, exc, sys.exc_info()[2])
+            _reraise(exceptions.OioNetworkException, exc)
         except TimeoutError as exc:
-            reraise(exceptions.OioTimeout, exc, sys.exc_info()[2])
+            _reraise(exceptions.OioTimeout, exc)
         except HTTPError as exc:
-            reraise(exceptions.OioException, exc, sys.exc_info()[2])
+            _reraise(exceptions.OioException, exc)
         if resp.status >= 400:
             raise exceptions.from_response(resp, body)
         return resp, body

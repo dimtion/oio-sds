@@ -15,12 +15,14 @@
 
 from gunicorn.app.base import BaseApplication
 from gunicorn.glogging import Logger
-from werkzeug.wrappers import Request
+from werkzeug.wrappers import Request, Response
+from werkzeug.utils import escape
 from werkzeug.exceptions import HTTPException, InternalServerError
 
 from oio.common.utils import CPU_COUNT
 from oio.common.configuration import read_conf
 from oio.common.logger import get_logger
+from oio.common.http import get_addr
 
 
 class Application(BaseApplication):
@@ -34,8 +36,8 @@ class Application(BaseApplication):
         super(Application, self).__init__()
 
     def load_config(self):
-        bind = '%s:%s' % (self.conf.get('bind_addr', '127.0.0.1'),
-                          self.conf.get('bind_port', '8000'))
+        bind = get_addr(self.conf.get('bind_addr', '127.0.0.1'),
+                        self.conf.get('bind_port', '8000'))
         self.cfg.set('bind', bind)
         self.cfg.set('backlog', self.conf.get('backlog', 2048))
         self.cfg.set('workers', self.conf.get('workers', 1))
@@ -105,13 +107,16 @@ class WerkzeugApp(object):
         adapter = self.url_map.bind_to_environ(req.environ)
         try:
             endpoint, _ = adapter.match()
-            return getattr(self, 'on_' + endpoint)(req)
+            resp = getattr(self, 'on_' + endpoint)(req)
         except HTTPException as exc:
-            return exc
+            resp = exc
         except Exception as exc:
             if self.logger:
                 self.logger.exception('ERROR Unhandled exception in request')
-            return InternalServerError('Unmanaged error: %s' % exc)
+            resp = InternalServerError('Unmanaged error: %s' % exc)
+        if isinstance(resp, HTTPException) and not resp.response:
+            resp.response = Response(escape(resp.description), resp.code)
+        return resp
 
     def wsgi_app(self, environ, start_response):
         req = Request(environ)

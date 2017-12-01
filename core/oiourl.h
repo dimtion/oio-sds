@@ -20,6 +20,11 @@ License along with this library.
 #ifndef OIO_SDS__core__oiourl_h
 # define OIO_SDS__core__oiourl_h 1
 
+/**
+ * @addtogroup oio-api-c
+ * @{
+ */
+
 #include <glib.h>
 #include <sys/types.h>
 
@@ -116,7 +121,7 @@ int oio_url_has(const struct oio_url_s *u, enum oio_url_field_e f);
 
 /** Set the container id from its binary representation.
  * Use oio_url_set(u, OIOURL_CONTENTID, id) to set it with an hexadecimal str.
- * <id> must be oio_url_get_id_size() bytes long */
+ * @param id must be oio_url_get_id_size() bytes long */
 void oio_url_set_id(struct oio_url_s *u, const void *id);
 
 /* the returned value points to an array of oio_url_get_id_size() bytes long. */
@@ -143,4 +148,6 @@ gboolean oio_url_check(const struct oio_url_s *u, const char *n, const gchar **e
 #ifdef __cplusplus
 }
 #endif
+
+/** @} */
 #endif /*OIO_SDS__core__oiourl_h*/

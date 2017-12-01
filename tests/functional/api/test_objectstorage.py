@@ -17,21 +17,22 @@
 import logging
 import time
 from oio.api.object_storage import ObjectStorageApi
+from oio.common.constants import CHUNK_HEADERS
 from oio.common.http_urllib3 import get_pool_manager
 from oio.common.storage_functions import _sort_chunks as sort_chunks
 from oio.common import exceptions as exc
 from tests.utils import random_str, random_data, BaseTestCase
 
 
-class TestObjectStorageAPI(BaseTestCase):
+class ObjectStorageApiTestBase(BaseTestCase):
 
     def setUp(self):
-        super(TestObjectStorageAPI, self).setUp()
+        super(ObjectStorageApiTestBase, self).setUp()
         self.api = ObjectStorageApi(self.ns, endpoint=self.uri)
         self.created = list()
 
     def tearDown(self):
-        super(TestObjectStorageAPI, self).tearDown()
+        super(ObjectStorageApiTestBase, self).tearDown()
         for ct, name in self.created:
             try:
                 self.api.object_delete(self.account, ct, name)
@@ -60,6 +61,16 @@ class TestObjectStorageAPI(BaseTestCase):
         return self.api.container_set_properties(
             self.account, name, properties=properties)
 
+    def _upload_empty(self, container, *objs, **kwargs):
+        """Upload empty objects to `container`"""
+        for obj in objs:
+            self.api.object_create(self.account, container,
+                                   obj_name=obj, data="", **kwargs)
+            self.created.append((container, obj))
+
+
+class TestObjectStorageApi(ObjectStorageApiTestBase):
+
     def test_container_show(self):
         # container_show on unknown container
         name = random_str(32)
@@ -68,7 +79,8 @@ class TestObjectStorageAPI(BaseTestCase):
 
         self._create(name)
         # container_show on existing container
-        res = self.api.container_show(self.account, name)
+        res = self.api.container_show(self.account, name,
+                                      headers={'X-oio-req-id': 'Salut!'})
         self.assertIsNot(res['properties'], None)
 
         self._delete(name)
@@ -518,7 +530,7 @@ class TestObjectStorageAPI(BaseTestCase):
         self.assertRaises(
             exc.NoSuchAccount, self.api.account_refresh, account)
 
-    def test_all_accounts_refresh(self):
+    def test_account_refresh_all(self):
         # clear accounts
         accounts = self.api.account_list()
         for account in accounts:
@@ -528,15 +540,15 @@ class TestObjectStorageAPI(BaseTestCase):
             except exc.NoSuchAccount:  # account remove in the meantime
                 pass
 
-        # all_accounts_refresh with 0 account
-        self.api.all_accounts_refresh()
+        # With 0 account
+        self.api.account_refresh()
 
-        # all_accounts_refresh with 2 account
+        # With 2 accounts
         account1 = random_str(32)
         self.api.account_create(account1)
         account2 = random_str(32)
         self.api.account_create(account2)
-        self.api.all_accounts_refresh()
+        self.api.account_refresh()
         res = self.api.account_show(account1)
         self.assertEqual(res["bytes"], 0)
         self.assertEqual(res["objects"], 0)
@@ -669,20 +681,20 @@ class TestObjectStorageAPI(BaseTestCase):
         # check target can be used
         self.api.object_create(self.account, name, data="0"*128,
                                obj_name="should_be_created")
-        # Create and send copy of a object
+        # Generate hard links of each chunk of the object
         url_list = [c['url'] for c in chunk_list]
-        copy_list = self.api._generate_copy(url_list)
+        copy_list = self.api._generate_copies(url_list)
         # every chunks should have the fullpath
-        fullpath = self.api._generate_fullpath(self.account,
-                                               snapshot_name, 'copy', 12456)
-        self.api._send_copy(url_list, copy_list, fullpath[0])
+        fullpath = self.api._generate_fullpath(
+            self.account, snapshot_name, 'copy', 12456)
+        self.api._link_chunks(url_list, copy_list, fullpath[0])
         # check that every copy exists
         pool_manager = get_pool_manager()
-        for c in copy_list:
-            r = pool_manager.request('HEAD', c)
-            self.assertEqual(r.status, 200)
+        for copy in copy_list:
+            resp = pool_manager.request('HEAD', copy)
+            self.assertEqual(resp.status, 200)
             self.assertIn(fullpath[0],
-                          r.headers["X-oio-chunk-meta-full-path"].split(','))
+                          resp.headers[CHUNK_HEADERS['full_path']].split(','))
         # Snapshot on non existing container should failed
         self.assertRaises(exc.NoSuchContainer,
                           self.api.container_snapshot,
@@ -696,3 +708,116 @@ class TestObjectStorageAPI(BaseTestCase):
         self.assertRaises(exc.ClientException,
                           self.api.container_snapshot,
                           self.account, name, random_str(16), None)
+
+    def test_object_create_long_name(self):
+        """Create an objet whose name has the maximum length allowed"""
+        cname = random_str(16)
+        path = random_str(1023)
+        self.api.object_create(self.account, cname,
+                               data="1"*128, obj_name=path)
+
+
+class TestObjectList(ObjectStorageApiTestBase):
+
+    def setUp(self):
+        super(TestObjectList, self).setUp()
+        self.cname = random_str(16)
+
+    def tearDown(self):
+        super(TestObjectList, self).tearDown()
+
+    def _upload_empty(self, *objs, **kwargs):
+        super(TestObjectList, self)._upload_empty(self.cname, *objs, **kwargs)
+
+    def test_object_list(self):
+        objects = ['a', 'b', 'c']
+        self._upload_empty(*objects)
+        res = self.api.object_list(self.account, self.cname)
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertListEqual(objects, [x['name'] for x in res['objects']])
+        self.assertFalse(res['prefixes'])
+        self.assertFalse(res['truncated'])
+
+    def test_object_list_limit(self):
+        objects = ['a', 'b', 'c']
+        self._upload_empty(*objects)
+        res = self.api.object_list(self.account, self.cname, limit=2)
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertIn('next_marker', res)
+        self.assertListEqual(objects[:2], [x['name'] for x in res['objects']])
+        self.assertFalse(res['prefixes'])
+        self.assertTrue(res['truncated'])
+
+        res = self.api.object_list(self.account, self.cname, limit=2,
+                                   marker=res['next_marker'])
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertListEqual(objects[2:], [x['name'] for x in res['objects']])
+        self.assertFalse(res['prefixes'])
+        self.assertFalse(res['truncated'])
+
+    def test_object_list_marker(self):
+        objects = ['a', 'b', 'c']
+        self._upload_empty(*objects)
+        res = self.api.object_list(self.account, self.cname, marker='a')
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertListEqual(objects[1:], [x['name'] for x in res['objects']])
+        self.assertFalse(res['prefixes'])
+        self.assertFalse(res['truncated'])
+
+    def test_object_list_delimiter(self):
+        objects = ['1/a', '1/b', '2/c']
+        self._upload_empty(*objects)
+        res = self.api.object_list(self.account, self.cname, delimiter='/')
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertFalse(res['objects'])
+        self.assertListEqual(['1/', '2/'], res['prefixes'])
+        self.assertFalse(res['truncated'])
+
+        self._upload_empty('a')
+        res = self.api.object_list(self.account, self.cname, delimiter='/')
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertListEqual(['a'], [x['name'] for x in res['objects']])
+        self.assertListEqual(['1/', '2/'], res['prefixes'])
+        self.assertFalse(res['truncated'])
+
+    def test_object_list_delimiter_limit_marker(self):
+        objects = ['1/a', '1/b', '1/c', '2/d', '2/e']
+        self._upload_empty(*objects)
+        res = self.api.object_list(self.account, self.cname,
+                                   delimiter='/', limit=1)
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertFalse(res['objects'])
+        self.assertListEqual(['1/'], res['prefixes'])
+        self.assertTrue(res['truncated'])
+
+        res = self.api.object_list(self.account, self.cname,
+                                   delimiter='/', limit=1,
+                                   marker=res['next_marker'])
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertFalse(res['objects'])
+        self.assertListEqual(['2/'], res['prefixes'])
+
+        res = self.api.object_list(self.account, self.cname,
+                                   delimiter='/', limit=1,
+                                   marker='1/')
+        self.assertIn('objects', res)
+        self.assertIn('prefixes', res)
+        self.assertIn('truncated', res)
+        self.assertFalse(res['objects'])
+        self.assertListEqual(['2/'], res['prefixes'])

@@ -20,6 +20,7 @@ from logging import getLogger
 from cliff import command, show, lister
 from time import time
 from oio.common.timestamp import Timestamp
+from oio.common.constants import OIO_DB_STATUS_NAME
 
 
 class SetPropertyCommandMixin(object):
@@ -238,18 +239,20 @@ class ShowContainer(show.ShowOne):
             ctime = int(ctime)
             bytes_usage = convert_size(int(bytes_usage), unit="B")
             objects = convert_size(int(objects))
-        info = {'account': sys['sys.account'],
-                'base_name': sys['sys.name'],
-                'container': sys['sys.user.name'],
-                'ctime': ctime,
-                'bytes_usage': bytes_usage,
-                'quota': sys.get('sys.m2.quota', "Namespace default"),
-                'objects': objects,
-                'storage_policy': sys.get('sys.m2.policy.storage',
-                                          "Namespace default"),
-                'max_versions': sys.get('sys.m2.policy.version',
-                                        "Namespace default"),
-                }
+        info = {
+            'account': sys['sys.account'],
+            'base_name': sys['sys.name'],
+            'container': sys['sys.user.name'],
+            'ctime': ctime,
+            'bytes_usage': bytes_usage,
+            'quota': sys.get('sys.m2.quota', "Namespace default"),
+            'objects': objects,
+            'storage_policy': sys.get('sys.m2.policy.storage',
+                                      "Namespace default"),
+            'max_versions': sys.get('sys.m2.policy.version',
+                                    "Namespace default"),
+            'status': OIO_DB_STATUS_NAME.get(sys.get('sys.status'), "Unknown"),
+        }
         for k, v in iteritems(data['properties']):
             info['meta.' + k] = v
         return list(zip(*sorted(info.items())))
@@ -466,12 +469,16 @@ class LocateContainer(show.ShowOne):
         data_dir = self.app.client_manager.storage.directory.list(
             account, container)
 
-        info = {'account': data['system']['sys.account'],
-                'base_name': data['system']['sys.name'],
-                'name': data['system']['sys.user.name'],
-                'meta0': list(),
-                'meta1': list(),
-                'meta2': list()}
+        info = {
+            'account': data['system']['sys.account'],
+            'base_name': data['system']['sys.name'],
+            'name': data['system']['sys.user.name'],
+            'meta0': list(),
+            'meta1': list(),
+            'meta2': list(),
+            'status': OIO_DB_STATUS_NAME.get(data['system'].get('sys.status'),
+                                             "Unknown"),
+        }
 
         for d in data_dir['srv']:
             if d['type'] == 'meta2':

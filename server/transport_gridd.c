@@ -248,15 +248,14 @@ _request_get_name(MESSAGE req)
 }
 
 static gchar *
-_req_get_hex_ID(MESSAGE req, gchar *d, gsize dsize)
+_req_get_ID(MESSAGE req, gchar *d, gsize dsize)
 {
 	gsize flen = 0;
 	guint8 *f = metautils_message_get_ID(req, &flen);
 	if (!f || !flen) {
 		*d = '-';
-	} else if (oio_str_ishexa((gchar*)f, flen)) {
-		for (gchar *p=d; flen-- > 0 && dsize-- > 0;)
-			*(p++) = *(f++);
+	} else if (oio_str_is_printable((gchar*)f, flen)) {
+		g_strlcpy(d, (gchar*)f, MIN(dsize, flen + 1));
 	} else {
 		oio_str_bin2hex(f, MIN(flen,dsize/2), d, dsize);
 	}
@@ -517,7 +516,7 @@ _client_reply_fixed(struct req_ctx_s *req_ctx, gint code, const gchar *msg)
 static gboolean
 _client_call_handler(struct req_ctx_s *req_ctx)
 {
-	struct gridd_reply_ctx_s ctx;
+	struct gridd_reply_ctx_s ctx = {};
 	GHashTable *headers = NULL;
 	GByteArray *body = NULL;
 
@@ -609,6 +608,8 @@ _client_call_handler(struct req_ctx_s *req_ctx)
 		return _ctx_get_cnx_data(req_ctx->clt_ctx, key);
 	}
 
+	const gint64 now = req_ctx->tv_parsed;
+
 	/* reply data */
 	ctx.add_header = _add_header;
 	ctx.add_body = _add_body;
@@ -622,11 +623,30 @@ _client_call_handler(struct req_ctx_s *req_ctx)
 	/* request data */
 	ctx.client = req_ctx->client;
 	ctx.request = req_ctx->request;
+	ctx.deadline = now + sqlx_request_max_delay_start;
 
-	/* check the request wasn't queued for too long */
+	/* Patch the deadline with a potential max delay in the request itself */
+	gchar tostr[32] = {};
+	if (metautils_message_extract_string_noerror(req_ctx->request,
+				NAME_MSGKEY_TIMEOUT, tostr, sizeof(tostr))) {
+		gint64 to = 0;
+		if (oio_str_is_number(tostr, &to) && to > 0) {
+			const gint64 req_deadline = now + to;
+			ctx.deadline = MIN(ctx.deadline, req_deadline);
+		}
+	}
+
+	/* Ugly quirk: it is currently too expansive to alter all the calls to
+	 * the meta2 backend, especially right now while we are writing this
+	 * comment in the 4.x branch. There is currently no support of a single
+	 * context with all the common open args, in 4.x, while there is one in
+	 * the 'master' branch. */
+	oio_ext_set_deadline(ctx.deadline);
+
 	gboolean rc = FALSE;
-	const gint64 now = req_ctx->tv_parsed;
 	if (req_ctx->tv_start < OLDEST(now, meta_queue_max_delay)) {
+		/* check the request wasn't queued for too long in regard to
+		 * the max time allowed in the queue (not the deadline!) */
 		gchar msg[128] = "";
 		g_snprintf(msg, sizeof(msg),
 				"Queued for too long (%" G_GINT64_FORMAT "ms)",
@@ -714,7 +734,7 @@ _client_manage_l4v(struct network_client_s *client, GByteArray *gba)
 	req_ctx.request = request;
 	req_ctx.reqname = _request_get_name(request);
 	req_ctx.uid = _request_get_cid(request);
-	req_ctx.reqid = _req_get_hex_ID(request, hexid, sizeof(hexid));
+	req_ctx.reqid = _req_get_ID(request, hexid, sizeof(hexid));
 	oio_ext_set_reqid(req_ctx.reqid);
 	rc = TRUE;
 
